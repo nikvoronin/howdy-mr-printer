@@ -69,7 +69,7 @@ void HealthCheck( string nick )
     using ManagementObjectCollection folks = searcher.Get();
     try {
         foreach ( ManagementObject buddy in folks ) {
-            var whosthere = buddy.ValueOrNull( "DeviceId", "" );
+            var whosthere = buddy.ValueOrDefault( "DeviceId", "" );
             if ( whosthere.Contains( nick ) ) {
                 ready = AreYouReady( buddy );
                 break;
@@ -83,14 +83,14 @@ void HealthCheck( string nick )
 
 bool AreYouReady( ManagementObject man )
 {
-    var state = man.ValueOrNull( "PrinterState", PrinterState.Idle );    
-    var status = man.ValueOrNull( "PrinterStatus", ExtendedStatus.None );    
-    var des = man.ValueOrNull( "DetectedErrorState", DetectedErrorState.Unknown );    
-    var exdes = man.ValueOrNull( "ExtendedDetectedErrorState", ExtendedDetectedErrorState.Unknown );
+    var state =  man.ValueOrDefault( "PrinterState", @default: PrinterState.Idle );    
+    var status = man.ValueOrDefault( "PrinterStatus", @default: ExtendedStatus.None );    
+    var derrs =  man.ValueOrDefault( "DetectedErrorState", @default: DetectedErrorState.Unknown );    
+    var exdes =  man.ValueOrDefault( "ExtendedDetectedErrorState", @default: ExtendedDetectedErrorState.Unknown );
 
     bool needtogodeeper = 
         ( status == ExtendedStatus.Other ) 
-        && ( F_DetectedErrorStates.Contains( des )
+        && ( F_DetectedErrorStates.Contains( derrs )
             || F_ExtendedDetectedErrorStates.Contains( exdes ));
 
     bool fault =
@@ -98,9 +98,7 @@ bool AreYouReady( ManagementObject man )
         || F_PrinterStatuses.Contains( status )
         || needtogodeeper;
 
-    LogToConsole( new object[] { fault, state, status, des, exdes } );
-    //Console.WriteLine(
-    //    $"{(fault ? "ERROR" : "Ready")} | State:{state} | Status:{status} | DetectedError:{des} | DetectedErrorEx:{exdes}" );
+    LogToConsole( new object[] { fault, state, status, derrs, exdes } );
 
     return !fault;
 }
@@ -217,7 +215,7 @@ enum PrinterState : uint
 
 public static class Extensions
 {
-    public static T ValueOrNull<T>( this ManagementObject man, string valueName, T @default ) where T : notnull
+    public static T ValueOrDefault<T>( this ManagementObject man, string valueName, T @default ) where T : notnull
     {
         try {
             return (T)man.GetPropertyValue( valueName );
