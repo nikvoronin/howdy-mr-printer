@@ -80,12 +80,15 @@ bool AreYouReady( ManagementObject man )
     var des = man.ValueOrNull( "DetectedErrorState", DetectedErrorState.Unknown );    
     var exdes = man.ValueOrNull( "ExtendedDetectedErrorState", ExtendedDetectedErrorState.Unknown );
 
+    bool needtogodeeper = 
+        ( status == ExtendedStatus.Other ) 
+        && ( F_DetectedErrorStates.Contains( des )
+            || F_ExtendedDetectedErrorStates.Contains( exdes ));
+
     bool fault =
         F_PrinterStates.Contains( state )
         || F_PrinterStatuses.Contains( status )
-        || ( status == ExtendedStatus.Other ) && (
-            F_DetectedErrorStates.Contains( des )
-            || F_ExtendedDetectedErrorStates.Contains( exdes ) );
+        || needtogodeeper;
 
     Console.WriteLine(
         $"{(fault ? "ERROR" : "Ready")} | State:{state} | Status:{status} | DetectedError:{des} | DetectedErrorEx:{exdes}" );
