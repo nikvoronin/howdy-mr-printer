@@ -57,6 +57,9 @@ while ( !Console.KeyAvailable ) {
     await Task.Delay( 1000 );
 }
 
+void LogToConsole( object[] xs ) => Console.WriteLine(
+    $"{( (bool)xs[0] ? "ERROR" : "Ready" )} | State:{xs[1]} | Status:{xs[2]} | DetectedError:{xs[3]} | DetectedErrorEx:{xs[4]}" );
+
 void HealthCheck( string nick )
 {
     bool ready = true;
@@ -95,8 +98,9 @@ bool AreYouReady( ManagementObject man )
         || F_PrinterStatuses.Contains( status )
         || needtogodeeper;
 
-    Console.WriteLine(
-        $"{(fault ? "ERROR" : "Ready")} | State:{state} | Status:{status} | DetectedError:{des} | DetectedErrorEx:{exdes}" );
+    LogToConsole( new object[] { fault, state, status, des, exdes } );
+    //Console.WriteLine(
+    //    $"{(fault ? "ERROR" : "Ready")} | State:{state} | Status:{status} | DetectedError:{des} | DetectedErrorEx:{exdes}" );
 
     return !fault;
 }
