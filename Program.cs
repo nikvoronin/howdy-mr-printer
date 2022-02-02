@@ -46,9 +46,14 @@ PrinterState[] F_PrinterStates = new[] {
 };
 #endregion
 
-Console.WriteLine( DefaultPrinterName );
+//💡 The args array can't be null. So, it's safe to access the Length property without null checking.
+//🔗 https://docs.microsoft.com/en-us/dotnet/csharp/fundamentals/program-structure/main-command-line
+bool hasArgs = !(args.Length == 0 || string.IsNullOrWhiteSpace( args[0] ));
+string printerName = hasArgs ? args[0] : DefaultPrinterName;
+
+Console.WriteLine( $"Monitoring: {printerName}" );
 while ( !Console.KeyAvailable ) {
-    HealthCheck( DefaultPrinterName );
+    HealthCheck( printerName );
     await Task.Delay( 1000 );
 }
 
