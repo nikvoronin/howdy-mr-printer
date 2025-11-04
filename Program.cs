@@ -73,19 +73,22 @@ void DoHealthCheck( string nick )
 {
     string query = $"SELECT * from Win32_Printer WHERE Name LIKE '%{nick}%'";
 
+    bool ready = true; // to explain clearly
+
     using ManagementObjectSearcher searcher = new( query );
     using ManagementObjectCollection folks = searcher.Get();
     try {
         foreach (var buddy in folks.Cast<ManagementObject>()) {
             var whosthere = buddy.ValueOrDefaultOf( "DeviceId", "" );
             if (whosthere.Contains( nick )) {
-                _ = AreYouReady( buddy );
+                ready = AreYouReady( buddy );
                 break;
             }
         }
     }
     catch (ManagementException ex) {
-        // not ready
+        // it is not ready here
+        ready = false;
     }
 
     GC.Collect();
