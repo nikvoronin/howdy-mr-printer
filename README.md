@@ -1,6 +1,6 @@
 # Howdy Mr Printer
 
-How to check the printer status in Windows
+How to check printer status in Windows
 
 ## Сonsole Log
 
