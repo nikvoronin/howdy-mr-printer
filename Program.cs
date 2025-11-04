@@ -1,96 +1,119 @@
-﻿#pragma warning disable CA1416 // Validate platform compatibility
+#pragma warning disable CA1416 // Validate platform compatibility
 using System.Management;
 
 const string DefaultPrinterName = "Microsoft Print to PDF";
 
 #region F word states... i.e. faulty states
-DetectedErrorState[] F_DetectedErrorStates = new[] {
-    DetectedErrorState.NoPaper,
-    DetectedErrorState.NoToner,
-    DetectedErrorState.DoorOpen,
-    DetectedErrorState.Jammed,
-    DetectedErrorState.Offline,
-    DetectedErrorState.ServiceRequested,
-    DetectedErrorState.OutputBinFull
-};
+var F_DetectedErrorStates =
+    new DetectedErrorState[] {
+        DetectedErrorState.NoPaper,
+        DetectedErrorState.NoToner,
+        DetectedErrorState.DoorOpen,
+        DetectedErrorState.Jammed,
+        DetectedErrorState.Offline,
+        DetectedErrorState.ServiceRequested,
+        DetectedErrorState.OutputBinFull
+    };
 
-ExtendedDetectedErrorState[] F_ExtendedDetectedErrorStates = new[] {
-    ExtendedDetectedErrorState.NoPaper,
-    ExtendedDetectedErrorState.NoToner,
-    ExtendedDetectedErrorState.DoorOpen,
-    ExtendedDetectedErrorState.Jammed,
-    ExtendedDetectedErrorState.ServiceRequested,
-    ExtendedDetectedErrorState.OutputBinFull,
-    ExtendedDetectedErrorState.PaperProblem,
-    ExtendedDetectedErrorState.CannotPrintPage,
-    ExtendedDetectedErrorState.UserInterventionRequired,
-    ExtendedDetectedErrorState.OutOfMemory,
-    ExtendedDetectedErrorState.ServerUnknown
-};
+var F_ExtendedDetectedErrorStates =
+    new ExtendedDetectedErrorState[] {
+        ExtendedDetectedErrorState.NoPaper,
+        ExtendedDetectedErrorState.NoToner,
+        ExtendedDetectedErrorState.DoorOpen,
+        ExtendedDetectedErrorState.Jammed,
+        ExtendedDetectedErrorState.ServiceRequested,
+        ExtendedDetectedErrorState.OutputBinFull,
+        ExtendedDetectedErrorState.PaperProblem,
+        ExtendedDetectedErrorState.CannotPrintPage,
+        ExtendedDetectedErrorState.UserInterventionRequired,
+        ExtendedDetectedErrorState.OutOfMemory,
+        ExtendedDetectedErrorState.ServerUnknown
+    };
 
-ExtendedStatus[] F_PrinterStatuses = new[] {
-    ExtendedStatus.None,
-    ExtendedStatus.Offline
-};
+var F_PrinterStatuses =
+    new ExtendedStatus[] {
+        ExtendedStatus.None,
+        ExtendedStatus.Offline
+    };
 
-PrinterState[] F_PrinterStates = new[] {
-    PrinterState.Error,
-    PrinterState.PaperJam,
-    PrinterState.PaperOut,
-    PrinterState.Offline,
-    PrinterState.NoToner,
-    PrinterState.Unk_PrinterIsOffline,
-    PrinterState.Unk_OutOfPaper,
-    PrinterState.Unk_Offline,
-    PrinterState.Unk_OutOfPaper_LidOpen
-};
+var F_PrinterStates =
+    new PrinterState[] {
+        PrinterState.Error,
+        PrinterState.PaperJam,
+        PrinterState.PaperOut,
+        PrinterState.Offline,
+        PrinterState.NoToner,
+        PrinterState.Unk_PrinterIsOffline,
+        PrinterState.Unk_OutOfPaper,
+        PrinterState.Unk_Offline,
+        PrinterState.Unk_OutOfPaper_LidOpen
+    };
 #endregion
 
 //💡 The args array can't be null. So, it's safe to access the Length property without null checking.
 //🔗 https://docs.microsoft.com/en-us/dotnet/csharp/fundamentals/program-structure/main-command-line
-bool hasArgs = !(args.Length == 0 || string.IsNullOrWhiteSpace( args[0] ));
-string printerName = hasArgs ? args[0] : DefaultPrinterName;
+bool hasArgs =
+    args.Length > 0
+    && !string.IsNullOrWhiteSpace( args[0] );
+string printerName =
+    hasArgs ? args[0]
+    : DefaultPrinterName;
 
 Console.WriteLine( $"Monitoring: {printerName}" );
-while ( !Console.KeyAvailable ) {
-    HealthCheck( printerName );
+while (!Console.KeyAvailable) {
+    DoHealthCheck( printerName );
     await Task.Delay( 1000 );
 }
 
-void LogToConsole( object[] xs ) => Console.WriteLine(
-    $"{( (bool)xs[0] ? "ERROR" : "Ready" )} | State:{xs[1]} | Status:{xs[2]} | DetectedError:{xs[3]} | DetectedErrorEx:{xs[4]}" );
+void LogToConsole( object[] xs ) =>
+    Console.WriteLine(
+        $"{((bool)xs[0] ? "ERROR" : "Ready")} | State:{xs[1]} | Status:{xs[2]} | DetectedError:{xs[3]} | DetectedErrorEx:{xs[4]}" );
 
-void HealthCheck( string nick )
+void DoHealthCheck( string nick )
 {
-    bool ready = true;
     string query = $"SELECT * from Win32_Printer WHERE Name LIKE '%{nick}%'";
 
     using ManagementObjectSearcher searcher = new( query );
     using ManagementObjectCollection folks = searcher.Get();
     try {
-        foreach ( ManagementObject buddy in folks ) {
-            var whosthere = buddy.ValueOrDefault( "DeviceId", "" );
-            if ( whosthere.Contains( nick ) ) {
-                ready = AreYouReady( buddy );
+        foreach (var buddy in folks.Cast<ManagementObject>()) {
+            var whosthere = buddy.ValueOrDefaultOf( "DeviceId", "" );
+            if (whosthere.Contains( nick )) {
+                _ = AreYouReady( buddy );
                 break;
-            };
+            }
         }
     }
-    catch ( ManagementException ex ) {
-        ready = false;
+    catch (ManagementException ex) {
+        // not ready
     }
+
+    GC.Collect();
+    GC.WaitForFullGCComplete( 
+        TimeSpan.FromMilliseconds( 100 ) );
 }
 
 bool AreYouReady( ManagementObject man )
 {
-    var state =  man.ValueOrDefault( "PrinterState", @default: PrinterState.Idle );    
-    var status = man.ValueOrDefault( "PrinterStatus", @default: ExtendedStatus.None );    
-    var derrs =  man.ValueOrDefault( "DetectedErrorState", @default: DetectedErrorState.Unknown );    
-    var exdes =  man.ValueOrDefault( "ExtendedDetectedErrorState", @default: ExtendedDetectedErrorState.Unknown );
+    var state = man.ValueOrDefaultOf(
+        "PrinterState", 
+        @default: PrinterState.Idle );
 
-    bool needtogodeeper = 
-        ( status == ExtendedStatus.Other ) 
-        && ( F_DetectedErrorStates.Contains( derrs )
+    var status = man.ValueOrDefaultOf( 
+        "PrinterStatus", 
+        @default: ExtendedStatus.None );
+
+    var derrs = man.ValueOrDefaultOf( 
+        "DetectedErrorState", 
+        @default: DetectedErrorState.Unknown );
+
+    var exdes = man.ValueOrDefaultOf( 
+        "ExtendedDetectedErrorState", 
+        @default: ExtendedDetectedErrorState.Unknown );
+
+    bool needtogodeeper =
+        (status == ExtendedStatus.Other)
+        && (F_DetectedErrorStates.Contains( derrs )
             || F_ExtendedDetectedErrorStates.Contains( exdes ));
 
     bool fault =
@@ -98,9 +121,10 @@ bool AreYouReady( ManagementObject man )
         || F_PrinterStatuses.Contains( status )
         || needtogodeeper;
 
-    LogToConsole( new object[] { fault, state, status, derrs, exdes } );
+    LogToConsole( [fault, state, status, derrs, exdes] );
 
-    return !fault;
+    var ready = !fault;
+    return ready;
 }
 
 enum PrinterStatus : ushort
@@ -213,10 +237,16 @@ enum PrinterState : uint
     Unk_PrinterIsOffline = 128
 }
 
-public static class Extensions
+internal static class Extensions
 {
-    public static T ValueOrDefault<T>( this ManagementObject man, string valueName, T @default ) where T : notnull
+    public static T ValueOrDefaultOf<T>( 
+        this ManagementObject man, 
+        string valueName, 
+        T @default ) 
+        where T : notnull
     {
+        if (man is null) return @default;
+
         try {
             return (T)man.GetPropertyValue( valueName );
         }
