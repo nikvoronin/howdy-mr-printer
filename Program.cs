@@ -1,4 +1,5 @@
 #pragma warning disable CA1416 // Validate platform compatibility
+using System.Collections.Frozen;
 using System.Management;
 
 const string DefaultPrinterName = "Microsoft Print to PDF";
@@ -13,7 +14,7 @@ var F_DetectedErrorStates =
         DetectedErrorState.Offline,
         DetectedErrorState.ServiceRequested,
         DetectedErrorState.OutputBinFull
-    };
+    }.ToFrozenSet();
 
 var F_ExtendedDetectedErrorStates =
     new ExtendedDetectedErrorState[] {
@@ -28,13 +29,13 @@ var F_ExtendedDetectedErrorStates =
         ExtendedDetectedErrorState.UserInterventionRequired,
         ExtendedDetectedErrorState.OutOfMemory,
         ExtendedDetectedErrorState.ServerUnknown
-    };
+    }.ToFrozenSet();
 
 var F_PrinterStatuses =
     new ExtendedStatus[] {
         ExtendedStatus.None,
         ExtendedStatus.Offline
-    };
+    }.ToFrozenSet();
 
 var F_PrinterStates =
     new PrinterState[] {
@@ -47,7 +48,7 @@ var F_PrinterStates =
         PrinterState.Unk_OutOfPaper,
         PrinterState.Unk_Offline,
         PrinterState.Unk_OutOfPaper_LidOpen
-    };
+    }.ToFrozenSet();
 #endregion
 
 //💡 The args array can't be null. So, it's safe to access the Length property without null checking.
@@ -91,27 +92,28 @@ void DoHealthCheck( string nick )
         ready = false;
     }
 
+    // To free local underlied management objects
     GC.Collect();
-    GC.WaitForFullGCComplete( 
+    GC.WaitForFullGCComplete(
         TimeSpan.FromMilliseconds( 100 ) );
 }
 
 bool AreYouReady( ManagementObject man )
 {
     var state = man.ValueOrDefaultOf(
-        "PrinterState", 
+        nameof( PrinterState ),
         @default: PrinterState.Idle );
 
-    var status = man.ValueOrDefaultOf( 
-        "PrinterStatus", 
+    var status = man.ValueOrDefaultOf(
+        nameof( PrinterStatus ),
         @default: ExtendedStatus.None );
 
-    var derrs = man.ValueOrDefaultOf( 
-        "DetectedErrorState", 
+    var derrs = man.ValueOrDefaultOf(
+        nameof( DetectedErrorState ),
         @default: DetectedErrorState.Unknown );
 
-    var exdes = man.ValueOrDefaultOf( 
-        "ExtendedDetectedErrorState", 
+    var exdes = man.ValueOrDefaultOf(
+        nameof( ExtendedDetectedErrorState ),
         @default: ExtendedDetectedErrorState.Unknown );
 
     bool needtogodeeper =
@@ -242,10 +244,10 @@ enum PrinterState : uint
 
 internal static class Extensions
 {
-    public static T ValueOrDefaultOf<T>( 
-        this ManagementObject man, 
-        string valueName, 
-        T @default ) 
+    public static T ValueOrDefaultOf<T>(
+        this ManagementObject man,
+        string valueName,
+        T @default )
         where T : notnull
     {
         if (man is null) return @default;
